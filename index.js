@@ -89,21 +89,15 @@ async function getYoutubePlaylist(url) {
 
 async function downloadYoutubePlaylistMp3(url) {
   const playlistURL = await getYoutubePlaylist(url)
-  const success = [];
-  const failed = [];
-
   const promises = playlistURL.map(async (item, index) => {
-    console.log(`${index+1} Downloading ${item.ytTitle}...`)
-    await new Promise((resolve) => setTimeout(resolve, 5 * 1000)) // delay 5 seconds
+    await new Promise((resolve) => setTimeout(resolve, 5 * 1000))
     try {
       getMP3(item.ytVidId, { name: item.ytTitle, outputFolder: './downloaded' })
     } catch (error) {
       console.error(`${index+1}. Error when downloading a video ${item.ytTitle} (${item.ytLink}): `, error)
     }
   })
-
   await Promise.all(promises)
-  console.log(`Success: ${success}, Failed: ${failed}`)
 }
 
 function downloadYoutubeMp3(url) {

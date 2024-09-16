@@ -1,7 +1,7 @@
-const cheerio = require('cheerio')
-const readline = require('readline');
-const ytdl = require('ytdl-core')
-const ffmpeg = require('fluent-ffmpeg');
+import { load } from 'cheerio';
+import { cursorTo } from 'readline';
+import ytdl from '@distube/ytdl-core';
+import ffmpeg from 'fluent-ffmpeg';
 
 function sanitizeFileName(filename) {
   const reservedChars = /[<>:"/\\|?*]/g
@@ -12,17 +12,17 @@ function sanitizeFileName(filename) {
 // note, please create folder ffmpeg to store binary of ffmpeg
 // note, please create folder downloaded to store downloaded mp3
 
-function getMP3(id, options) {
-  const { name, outputFolder, ffmpegPath } = options
+async function getMP3(id, options) {
+  let { name, outputFolder, ffmpegPath } = options
 
   let stream = ytdl(id, {
     quality: 'highestaudio',
   });
 
+
   if (!name || name === '') {
-    ytdl.getBasicInfo(id).then(info => {
-      name = sanitizeFileName(info.videoDetails.title);
-    });
+    const info = await ytdl.getBasicInfo(constructUrl);
+    name = sanitizeFileName(info.videoDetails.title);
   }
 
   let start = Date.now();
@@ -30,7 +30,7 @@ function getMP3(id, options) {
     .setFfmpegPath(ffmpegPath ?? './ffmpeg/bin/ffmpeg.exe')
     .save(`${outputFolder ?? __dirname}/${name ?? id}.mp3`)
     .on('progress', p => {
-      readline.cursorTo(process.stdout, 0);
+      cursorTo(process.stdout, 0);
       process.stdout.write(`${p.targetSize}kb (${name} - (${id})) downloaded`);
     })
     .on('end', () => {
@@ -54,7 +54,7 @@ async function getYoutubePlaylist(url) {
     const getPlaylist = []
     const response = await fetch(url, { headers })
     const data = await response.text()
-    const $ = cheerio.load(data)
+    const $ = load(data)
 
     const getYtInitialData = JSON.parse(
       $('script:contains("var ytInitialData")')
@@ -92,7 +92,7 @@ async function downloadYoutubePlaylistMp3(url) {
   const promises = playlistURL.map(async (item, index) => {
     await new Promise((resolve) => setTimeout(resolve, 5 * 1000))
     try {
-      getMP3(item.ytVidId, { name: item.ytTitle, outputFolder: './downloaded' })
+      await getMP3(item.ytVidId, { name: item.ytTitle, outputFolder: './downloaded' })
     } catch (error) {
       console.error(`${index+1}. Error when downloading a video ${item.ytTitle} (${item.ytLink}): `, error)
     }
@@ -100,27 +100,23 @@ async function downloadYoutubePlaylistMp3(url) {
   await Promise.all(promises)
 }
 
-function downloadYoutubeMp3(url) {
+async function downloadYoutubeMp3(url, name) {
   const youtubeURLParams = new URLSearchParams(url)
   const ytVidId = youtubeURLParams.get('https://www.youtube.com/watch?v')
   try {
-    getMP3(ytVidId, { outputFolder: './downloaded' })
+    await getMP3(ytVidId, { name: name, outputFolder: './downloaded' })
   } catch (error) {
     console.error(`${1}. Error when downloading a video ${youtubeURLParams} (${item?.ytLink}): `, error)
   }
 }
 
-// usage
+// Usage
+async function main() {
+  // Youtube Playlist
+  await downloadYoutubePlaylistMp3("https://www.youtube.com/playlist?list=PLeC7upzFQBZU__esgZwh17JGYEdtED60c")
+  
+  // Single Youtube Video
+  await downloadYoutubeMp3('https://www.youtube.com/watch?v=_CV5wVHjMfQ')
+}
 
-// Youtube Music Album/Playlist
-(async() => {
-  downloadYoutubePlaylistMp3("https://music.youtube.com/playlist?list=OLAK5uy_le0yxWXsv9FFR34JFe6BdkMFTeVWYcUpo")
-})()
-
-// Youtube Playlist
-(async() => {
-  downloadYoutubePlaylistMp3("https://www.youtube.com/playlist?list=PLRCVKvN8K6Sa5HDzSB6dr_BSTBsqh1NOH")
-})()
-
-// Single Youtube Video
-downloadYoutubeMp3('https://www.youtube.com/watch?v=_CV5wVHjMfQ')
+main()
